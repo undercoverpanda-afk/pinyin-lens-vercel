@@ -115,6 +115,45 @@
             }
         }
         
+        async function resizeImage(file, maxWidth = 1200, maxHeight = 1200, quality = 0.8) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Calculate new dimensions
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = height * (maxWidth / width);
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = width * (maxHeight / height);
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convert to base64 with quality setting
+                        const resizedBase64 = canvas.toDataURL(file.type || 'image/jpeg', quality);
+                        resolve(resizedBase64);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
         async function translateImage() {
             const file = document.getElementById('imageInput').files[0];
             const resultDiv = document.getElementById('result');
@@ -131,9 +170,11 @@
             translateBtn.textContent = 'Processing...';
             
             try {
-                // Convert image to base64
-                const base64 = await fileToBase64(file);
+                // Resize image if needed to avoid size limits
+                const base64 = await resizeImage(file, 1200, 1200, 0.7);
                 const base64Data = base64.split(',')[1]; // Remove data:image/...;base64, prefix
+                
+                console.log('Image size after encoding:', (base64Data.length * 0.75 / 1024 / 1024).toFixed(2), 'MB');
                 
                 // CHANGE: Update the endpoint for Vercel
                 const response = await fetch('/api/translate', {
@@ -143,7 +184,7 @@
                     },
                     body: JSON.stringify({
                         image: base64Data,
-                        mimeType: file.type
+                        mimeType: file.type || 'image/jpeg'
                     })
                 });
                 
