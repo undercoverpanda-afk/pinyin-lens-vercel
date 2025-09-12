@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chinese to Pinyin Translator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { 
+            max-width: 600px; 
+            margin: 50px auto; 
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        #upload-area { 
+            border: 2px dashed #007cba; 
+            padding: 40px; 
+            text-align: center; 
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        
+        #result { 
+            margin-top: 20px; 
+            padding: 20px; 
+            background: #f5f5f5; 
+            border-radius: 5px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        button { 
+            background: #007cba; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+        
+        button:hover {
+            background: #005a8b;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        #imageInput {
+            margin: 10px 0;
+        }
+        
+        #preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        
+        .loading {
+            color: #007cba;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .success {
+            color: #155724;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🇨🇳 Chinese to Pinyin Translator</h1>
+    <p>Upload an image with Chinese characters to get pinyin translations.</p>
+    
+    <div id="upload-area">
+        <input type="file" id="imageInput" accept="image/*" onchange="previewImage()">
+        <p>📸 Choose an image with Chinese text</p>
+        <img id="preview" style="display:none;">
+        <br>
+        <button id="translateBtn" onclick="translateImage()" disabled>Get Pinyin Translation</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        function previewImage() {
+            const file = document.getElementById('imageInput').files[0];
+            const preview = document.getElementById('preview');
+            const translateBtn = document.getElementById('translateBtn');
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    translateBtn.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+                translateBtn.disabled = true;
+            }
+        }
+        
+        async function translateImage() {
+            const file = document.getElementById('imageInput').files[0];
+            const resultDiv = document.getElementById('result');
+            const translateBtn = document.getElementById('translateBtn');
+            
+            if (!file) {
+                resultDiv.innerHTML = '<div class="error">Please select an image first.</div>';
+                return;
+            }
+            
+            // Show loading state
+            resultDiv.innerHTML = '<div class="loading">🔄 Processing image... This may take a few seconds.</div>';
+            translateBtn.disabled = true;
+            translateBtn.textContent = 'Processing...';
+            
+            try {
+                // Convert image to base64
+                const base64 = await fileToBase64(file);
+                const base64Data = base64.split(',')[1]; // Remove data:image/...;base64, prefix
+                
+                // CHANGE: Update the endpoint for Vercel
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: base64Data,
+                        mimeType: file.type
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                }
+                
+                const result = await response.text();
+                resultDiv.innerHTML = `<div class="success"><strong>Translation Result:</strong><br><br>${result}</div>`;
+                
+            } catch (error) {
+                console.error('Translation error:', error);
+                resultDiv.innerHTML = `<div class="error"><strong>Error:</strong> ${error.message}<br><br>Please try again or check that your image contains clear Chinese text.</div>`;
+            } finally {
+                translateBtn.disabled = false;
+                translateBtn.textContent = 'Get Pinyin Translation';
+            }
+        }
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+    </script>
+</body>
+</html>
