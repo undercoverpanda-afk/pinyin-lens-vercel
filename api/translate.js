@@ -51,7 +51,7 @@ export default async function handler(req, res) {
                         },
                         {
                             type: 'text',
-                            text: 'Provide the pinyin pronunciation for all chinese charecters in this image. Only provide characters and pinyin. Detail when translations from new columns begin. Include numbers if there are any. If no Chinese characters are found, please say so.'
+                            text: 'Provide the pinyin pronunciation for all chinese charecters in this image. Only provide characters and pinyin, don't provide additional commentarty or explanations. Detail when translations from new columns begin. Include numbers if there are any. If no Chinese characters are found, please say so.'
                         }
                     ]
                 }]
