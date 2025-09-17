@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chinese to Pinyin Translator</title>
+    <title>Read Chinese Menus and Signs with Pinyin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { 
@@ -16,7 +16,7 @@
             padding: 40px; 
             text-align: center; 
             border-radius: 10px;
-            background: #f8f9fa;
+            margin-bottom: 20px;
         }
         
         #result { 
@@ -36,7 +36,9 @@
             border-radius: 5px; 
             cursor: pointer;
             font-size: 16px;
-            margin-top: 15px;
+            display: block;
+            margin: 0 auto;
+            margin-bottom: 20px;
         }
         
         button:hover {
@@ -82,16 +84,16 @@
     </style>
 </head>
 <body>
-    <h1>🇨🇳 Chinese to Pinyin Translator</h1>
+    <h1>🇨🇳 Read Chinese Menus and Signs with Pinyin</h1>
     <p>Upload an image with Chinese characters to get pinyin translations.</p>
     
     <div id="upload-area">
         <input type="file" id="imageInput" accept="image/*" onchange="previewImage()">
         <p>📸 Choose an image with Chinese text</p>
         <img id="preview" style="display:none;">
-        <br>
-        <button id="translateBtn" onclick="translateImage()" disabled>Get Pinyin Translation</button>
     </div>
+    
+    <button id="translateBtn" onclick="translateImage()" disabled>Get Pinyin Translation</button>
     
     <div id="result"></div>
     
@@ -189,8 +191,24 @@
                 });
                 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                    // Try to read the response as text first
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    
+                    // Try to parse as JSON, otherwise use the text
+                    let errorMessage;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.error || errorData.message || `Server error: ${response.status}`;
+                    } catch {
+                        // If it's not JSON, it might be an HTML error page
+                        if (errorText.includes('Request Entity Too Large')) {
+                            errorMessage = 'Image file is too large. Please use a smaller image (under 4.5MB after encoding).';
+                        } else {
+                            errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
+                        }
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 const result = await response.text();
