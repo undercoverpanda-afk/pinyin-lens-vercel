@@ -1,6 +1,4 @@
-// api/telegram.js - Telegram bot with Jimp for image resizing
-const Jimp = require('jimp');
-
+// api/telegram.js - Optimized without external dependencies
 module.exports = async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -21,11 +19,33 @@ module.exports = async function handler(req, res) {
         
         // Handle photo messages
         if (message.photo && message.photo.length > 0) {
-            // Get the highest resolution photo for best quality
-            const photo = message.photo[message.photo.length - 1];
-            const fileId = photo.file_id;
+            // Strategy: Use the best quality photo that's under 3MB
+            let selectedPhoto = null;
+            let selectedIndex = -1;
             
-            console.log(`Processing highest resolution photo: ${photo.width}x${photo.height}`);
+            // Start from highest quality and work down to find one under 3MB
+            for (let i = message.photo.length - 1; i >= 0; i--) {
+                const photo = message.photo[i];
+                // Estimate file size (rough estimate: width * height * 3 bytes for RGB)
+                const estimatedSize = (photo.width * photo.height * 3) / 1024 / 1024; // in MB
+                
+                console.log(`Photo ${i}: ${photo.width}x${photo.height}, estimated ${estimatedSize.toFixed(2)}MB`);
+                
+                if (estimatedSize < 3) { // Under 3MB estimated
+                    selectedPhoto = photo;
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            
+            // If all are too large, use the middle resolution
+            if (!selectedPhoto) {
+                selectedIndex = Math.floor(message.photo.length / 2);
+                selectedPhoto = message.photo[selectedIndex];
+            }
+            
+            const fileId = selectedPhoto.file_id;
+            console.log(`Selected photo ${selectedIndex + 1}/${message.photo.length}: ${selectedPhoto.width}x${selectedPhoto.height}`);
             
             // Get file path from Telegram
             const fileResponse = await fetch(
@@ -37,7 +57,14 @@ module.exports = async function handler(req, res) {
                 throw new Error('Failed to get file from Telegram');
             }
             
-            console.log('Original file size:', (fileData.result.file_size / 1024 / 1024).toFixed(2), 'MB');
+            // Check actual file size
+            const fileSizeMB = fileData.result.file_size / 1024 / 1024;
+            console.log('Actual file size:', fileSizeMB.toFixed(2), 'MB');
+            
+            // If still too large, ask for a smaller image
+            if (fileSizeMB > 4.5) {
+                throw new Error('Image too large. Please send a smaller or lower resolution image.');
+            }
             
             // Download the image
             const imageUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileData.result.file_path}`;
@@ -47,34 +74,11 @@ module.exports = async function handler(req, res) {
                 throw new Error('Failed to download image from Telegram');
             }
             
-            const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+            const imageBuffer = await imageResponse.arrayBuffer();
+            const base64Image = Buffer.from(imageBuffer).toString('base64');
             
-            // Process image with Jimp (similar to canvas in browser)
-            console.log('Resizing image with Jimp...');
-            const image = await Jimp.read(imageBuffer);
-            
-            // Resize to max 1200x1200 maintaining aspect ratio
-            const maxSize = 1200;
-            const width = image.getWidth();
-            const height = image.getHeight();
-            
-            if (width > maxSize || height > maxSize) {
-                if (width > height) {
-                    image.resize(maxSize, Jimp.AUTO);
-                } else {
-                    image.resize(Jimp.AUTO, maxSize);
-                }
-                console.log(`Resized from ${width}x${height} to ${image.getWidth()}x${image.getHeight()}`);
-            }
-            
-            // Set quality to 70% (similar to website)
-            image.quality(70);
-            
-            // Convert to buffer and then base64
-            const resizedBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-            const base64Image = resizedBuffer.toString('base64');
-            
-            console.log('Final base64 size:', (base64Image.length / 1024 / 1024).toFixed(2), 'MB');
+            const base64SizeMB = base64Image.length / 1024 / 1024;
+            console.log('Base64 size:', base64SizeMB.toFixed(2), 'MB');
             
             // Send typing indicator
             await fetch(
@@ -97,7 +101,7 @@ module.exports = async function handler(req, res) {
             
             console.log('Calling Claude API...');
             
-            // Call Claude API
+            // Call Claude API with enhanced prompt for better accuracy
             const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
@@ -121,7 +125,19 @@ module.exports = async function handler(req, res) {
                             },
                             {
                                 type: 'text',
-                                text: 'Please identify all Chinese characters in this image and provide their pinyin pronunciation. Format each as: Character (pinyin). List them clearly. If no Chinese characters are found, please say so.'
+                                text: `Please carefully identify ALL Chinese characters in this image and provide their pinyin pronunciation. 
+
+Important instructions:
+- Look for Chinese characters anywhere in the image (menus, signs, labels, etc.)
+- For each character or word, format as: Character (pinyin)
+- If characters form words, you can group them: 词语 (cí yǔ)
+- Include tone marks in the pinyin
+- List each item on a new line
+- Be thorough - don't miss any Chinese text
+- If the image quality is poor for some characters, note that
+- If no Chinese characters are found, please say so
+
+Please examine the entire image carefully.`
                             }
                         ]
                     }]
@@ -140,7 +156,6 @@ module.exports = async function handler(req, res) {
                     errorMessage = errorText.substring(0, 200);
                 }
                 
-                // Check for specific errors
                 if (errorMessage.includes('image_too_large')) {
                     throw new Error('Image is too large for processing. Please send a smaller or lower resolution image.');
                 }
@@ -157,7 +172,7 @@ module.exports = async function handler(req, res) {
             const text = message.text.toLowerCase();
             
             if (text === '/start' || text === '/help') {
-                responseText = `🇨🇳 *Chinese to Pinyin Bot*\n\n📸 Send me a photo of Chinese text and I'll provide the pinyin pronunciation!\n\n*How to use:*\n1. Take or select a photo with Chinese characters\n2. Send it to me\n3. Get instant pinyin translation\n\n*Tips:*\n• Clear, well-lit photos work best\n• Avoid blurry or angled shots\n• I can handle menus, signs, and any Chinese text!`;
+                responseText = `🇨🇳 *Chinese to Pinyin Bot*\n\n📸 Send me a photo of Chinese text and I'll provide the pinyin pronunciation!\n\n*How to use:*\n1. Take or select a photo with Chinese characters\n2. Send it to me\n3. Get instant pinyin translation\n\n*Tips for best results:*\n• Use good lighting when taking photos\n• Make sure text is clear and in focus\n• Avoid extreme angles\n• For large menus, you can send multiple photos\n\n*I can translate:*\n• Restaurant menus\n• Street signs\n• Product labels\n• Any Chinese text!\n\nJust send me a photo to get started! 📷`;
             } else {
                 responseText = '📸 Please send me a photo with Chinese text to translate!';
             }
@@ -190,7 +205,7 @@ module.exports = async function handler(req, res) {
             if (error.message.includes('API configuration')) {
                 errorMessage = '❌ Bot configuration error. Please contact support.';
             } else if (error.message.includes('too large') || error.message.includes('too_large')) {
-                errorMessage = '❌ Image is too large. Please:\n• Send a lower resolution photo\n• Or crop the image to focus on the text\n• Or take the photo from further away';
+                errorMessage = '❌ Image is too large. Please:\n• Send a lower resolution photo\n• Or take the photo from further away\n• Or crop to focus on specific text';
             } else if (error.message.includes('rate')) {
                 errorMessage = '❌ Too many requests. Please wait a moment and try again.';
             }
