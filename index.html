@@ -1,7 +1,17 @@
-<!DOCTYPE html>
+<div style="margin: 20px auto; max-width: 600px; text-align: center;">
+        <p style="margin: 0; font-size: 14px; color: #666; display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 20px; height: 20px; margin-right: 8px;" viewBox="0 0 24 24" fill="#007cba" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3    <div style="margin: 20px auto; max-width: 600px; text-align: center;">
+        <p style="margin: 0; font-size: 14px; color: #666; display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 20px; height: 20px; margin-right: 8px;" viewBox="0 0 24 24" fill="#007cba" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.78 18.65l.28-4    <div style="margin: 20px auto; max-width: 600px; text-align: center;">
+        <p style="margin: 0; font-size: 14px; color: #666; display: flex; align-items: center; justify-content: center;">
+            <svg style="width: 20px; height: 20px; margin-right: 8px;" viewBox="0 0 24 24" fill="#007cba" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.56c-.21 1.57-1.11 5.79-1.57 7.68-.19.8-.57 1.06-.93 1.09-.79.06-1.39-.52-2.15-1.02-1.2-.78-1.87-1.27-3.03-2.03-1.34-.88-.47-1.36.29-2.15.2-.21 3.66-3.35 3.72-3.64.01-.03.01-.17-.06-.24        
+        #result {<!DOCTYPE html>
 <html>
 <head>
-    <title>Read Chinese Menus and Signs with Pinyin</title>
+    <title>Upload Chinese Menus and Signs to Get Pinyin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { 
@@ -34,19 +44,12 @@
             color: #007cba;
             margin-bottom: 10px;
         } 
-        
-        #result {
             margin-top: 20px; 
             padding: 20px; 
             background: #f5f5f5; 
             border-radius: 5px;
             white-space: pre-wrap;
             line-height: 1.6;
-            display: none;
-        }
-        
-        #result.show {
-            display: block;
         }
         
         button { 
@@ -101,76 +104,6 @@
             border: 1px solid #c3e6cb;
             padding: 15px;
             border-radius: 5px;
-        }
-        
-        .floating-telegram-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #007cba;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            padding: 15px 20px;
-            box-shadow: 0 4px 12px rgba(0, 124, 186, 0.3);
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        
-        .floating-telegram-btn:hover {
-            background: #005a8b;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 124, 186, 0.4);
-        }
-        
-        .confidence-high {
-            background-color: rgba(21, 87, 36, 0.1);
-            border-bottom: 2px solid #28a745;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-        
-        .confidence-medium {
-            background-color: rgba(255, 193, 7, 0.1);
-            border-bottom: 2px solid #ffc107;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-        
-        .confidence-low {
-            background-color: rgba(220, 53, 69, 0.1);
-            border-bottom: 2px solid #dc3545;
-            padding: 2px 4px;
-            border-radius: 3px;
-        }
-        
-        .confidence-legend {
-            font-size: 12px;
-            color: #666;
-            margin-top: 10px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .confidence-legend span {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .confidence-indicator {
-            width: 12px;
-            height: 3px;
-            border-radius: 2px;
         }
     </style>
 </head>
@@ -293,23 +226,55 @@
                 
                 console.log('Image size after encoding:', (base64Data.length * 0.75 / 1024 / 1024).toFixed(2), 'MB');
                 
-                // Note: This is a demo - the actual API endpoint would be implemented on your server
-                // For demonstration purposes, we'll simulate the API response
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate processing time
+                // CHANGE: Update the endpoint for Vercel
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: base64Data,
+                        mimeType: file.type || 'image/jpeg'
+                    })
+                });
                 
-                // Simulate a successful response
-                const mockResult = `拉面 (lā miàn) - Ramen
-红烧肉 (hóng shāo ròu) - Red braised pork
-宫保鸡丁 (gōng bǎo jī dīng) - Kung Pao chicken
-麻婆豆腐 (má pó dòu fǔ) - Mapo tofu
-蒸饺 (zhēng jiǎo) - Steamed dumplings`;
+                if (!response.ok) {
+                    // Try to read the response as text first
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    
+                    // Try to parse as JSON, otherwise use the text
+                    let errorMessage;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.error || errorData.message || `Server error: ${response.status}`;
+                    } catch {
+                        // If it's not JSON, it might be an HTML error page
+                        if (errorText.includes('Request Entity Too Large')) {
+                            errorMessage = 'Image file is too large. Please use a smaller image (under 4.5MB after encoding).';
+                        } else {
+                            errorMessage = `Server error (${response.status}): ${errorText.substring(0, 100)}`;
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
                 
-                resultDiv.innerHTML = `<div class="success"><strong>Pinyin Results:</strong><br><br>${mockResult}</div>`;
+                const result = await response.text();
+                resultDiv.innerHTML = `<div class="success"><strong>Pinyin Results:</strong><br><br>${result}</div>`;
                 
             } catch (error) {
                 console.error('Translation error:', error);
-                resultDiv.innerHTML = `<div class="error"><strong>Demo Mode:</strong> This is a preview of the PinyinMenu app. In the actual version, your image would be processed by AI to extract Chinese characters and provide pinyin pronunciation.<br><br>To use the real app, visit the deployed version or use the Telegram bot linked above.</div>`;
+                resultDiv.innerHTML = `<div class="error"><strong>Error:</strong> ${error.message}<br><br>Please try again or check that your image contains clear Chinese text.</div>`;
             }
+        }
+        
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
         }
     </script>
 </body>
