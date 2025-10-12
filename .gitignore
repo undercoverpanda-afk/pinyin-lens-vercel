@@ -1,0 +1,15 @@
+# node / npm
+node_modules/
+
+# build output (vercel common)
+dist/
+build/
+.next/
+.vercel/
+
+# env files
+.env
+.env.*
+
+# misc
+.DS_Store
